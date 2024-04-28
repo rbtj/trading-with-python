@@ -1,0 +1,451 @@
+"""
+Created on Sun Aug 15 20:16:36 2021
+
+@author: Raghu
+
+"""
+
+from kiteconnect import KiteConnect
+import os
+import pandas as pd
+import datetime
+import time
+import winsound
+import pickle
+import os
+
+# functions start
+
+def CancelOrder(order_id):
+    # Modify order given order id
+    kite.cancel_order(order_id=order_id,
+                      variety=kite.VARIETY_REGULAR)
+
+
+def placeOrder_LIMIT_NRML(symbol, buy_sell, quantity, limit_price):
+    # Place an intraday market order on NSE
+    if buy_sell == "buy":
+        t_type = kite.TRANSACTION_TYPE_BUY
+    elif buy_sell == "sell":
+        t_type = kite.TRANSACTION_TYPE_SELL
+    kite.place_order(tradingsymbol=symbol,
+                     exchange=kite.EXCHANGE_NFO,
+                     transaction_type=t_type,
+                     quantity=quantity,
+                     order_type=kite.ORDER_TYPE_LIMIT,
+                     price=limit_price,
+                     product=kite.PRODUCT_NRML,
+                     variety=kite.VARIETY_REGULAR)
+
+
+def placeOrder_LIMIT_MIS(symbol, buy_sell, quantity, limit_price):
+    # Place an intraday market order on NSE
+    if buy_sell == "buy":
+        t_type = kite.TRANSACTION_TYPE_BUY
+    elif buy_sell == "sell":
+        t_type = kite.TRANSACTION_TYPE_SELL
+    kite.place_order(tradingsymbol=symbol,
+                     exchange=kite.EXCHANGE_NFO,
+                     transaction_type=t_type,
+                     quantity=quantity,
+                     order_type=kite.ORDER_TYPE_LIMIT,
+                     price=limit_price,
+                     product=kite.PRODUCT_MIS,
+                     variety=kite.VARIETY_REGULAR)
+
+
+def placeOrder_MARKET_NRML(symbol, buy_sell, quantity):
+    # Place an intraday market order on NSE
+    print('entered market order normal')
+    print(symbol)
+    print(buy_sell)
+    print(quantity)    
+    if buy_sell == "buy":
+        t_type = kite.TRANSACTION_TYPE_BUY
+    elif buy_sell == "sell":
+        t_type = kite.TRANSACTION_TYPE_SELL
+    kite.place_order(tradingsymbol=symbol,
+                     exchange=kite.EXCHANGE_NFO,
+                     transaction_type=t_type,
+                     quantity=quantity,
+                     order_type=kite.ORDER_TYPE_MARKET,
+                     # price=limit_price,
+                     product=kite.PRODUCT_NRML,
+                     variety=kite.VARIETY_REGULAR)
+    print('end of market order normal function')
+
+
+def placeOrder_MARKET_MIS(symbol, buy_sell, quantity):
+    # Place an intraday market order on NSE
+    if buy_sell == "buy":
+        t_type = kite.TRANSACTION_TYPE_BUY
+    elif buy_sell == "sell":
+        t_type = kite.TRANSACTION_TYPE_SELL
+    kite.place_order(tradingsymbol=symbol,
+                     exchange=kite.EXCHANGE_NFO,
+                     transaction_type=t_type,
+                     quantity=quantity,
+                     order_type=kite.ORDER_TYPE_MARKET,
+                     # price=limit_price,
+                     product=kite.PRODUCT_MIS,
+                     variety=kite.VARIETY_REGULAR)
+
+
+######
+def square_off_all_positions():
+    # len(positions["net"])
+    # len(positions["day"])
+    print("entered square off functions")
+    a, b = 0, 0
+    while a < 10:
+        try:
+            pos_df = pd.DataFrame(kite.positions()["day"])
+            print("fetched positions")
+            break
+        except:
+            print("can't extract position data..retrying")
+            a += 1
+
+    # while b < 10:
+        # try:
+            #ord_df = pd.DataFrame(kite.orders())
+            #print("fetched orders")
+            # break
+        # except:
+            #print("can't extract order data..retrying")
+            # b+=1
+
+     #i=0
+    for i in range(len(pos_df)):
+        ticker = pos_df["tradingsymbol"].values[i]
+
+        if pos_df["quantity"].values[i] > 0 and pos_df['product'][i] == 'MIS':
+            quantity = pos_df["quantity"].values[i]
+            print(ticker, "sell", quantity)
+            #placeMarketOrder(ticker,"sell", quantity)
+            placeOrder_MARKET_MIS(ticker, "sell", quantity)
+            #placeOrder_MARKET_NRML(ticker,"sell", quantity)
+        if pos_df["quantity"].values[i] < 0 and pos_df['product'][i] == 'MIS':
+            quantity = abs(pos_df["quantity"].values[i])
+            print(ticker, "buy", quantity)
+            #placeMarketOrder(ticker,"buy", quantity)
+            placeOrder_MARKET_MIS(ticker, "buy", quantity)
+            #placeOrder_MARKET_NRML(ticker,"buy", quantity)
+
+        if pos_df["quantity"].values[i] > 0 and pos_df['product'][i] == 'NRML':
+            quantity = pos_df["quantity"].values[i]
+            print(ticker, "sell", quantity)
+            #placeMarketOrder(ticker,"sell", quantity)
+            #placeOrder_MARKET_MIS(ticker,"sell", quantity)
+            placeOrder_MARKET_NRML(ticker, "sell", quantity)
+        if pos_df["quantity"].values[i] < 0 and pos_df['product'][i] == 'NRML':
+            quantity = abs(pos_df["quantity"].values[i])
+            print(ticker, "buy", quantity)
+            #placeMarketOrder(ticker,"buy", quantity)
+            #placeOrder_MARKET_MIS(ticker, "buy", quantity)
+            placeOrder_MARKET_NRML(ticker,"buy", quantity) #important
+    print('end of square off function')
+    print('\a')
+######
+
+# pending order
+def close_all_orders():
+
+    while b < 10:
+        try:
+            ord_df = pd.DataFrame(kite.orders())
+            print("fetched orders")
+            break
+        except:
+            print("can't extract order data..retrying")
+            b += 1
+
+    #ord_df = pd.DataFrame(kite.orders())
+    pending = ord_df[ord_df['status'].isin(
+        ["TRIGGER PENDING", "OPEN"])]["order_id"].tolist()
+    pending
+    drop = []
+    attempt = 0
+    while len(pending) > 0 and attempt < 5:
+        pending = [j for j in pending if j not in drop]
+        pending
+        for order in pending:
+            try:
+                CancelOrder(order)
+                drop.append(order)
+            except:
+                print("unable to delete order id : ", order)
+                attempt += 1
+
+    print('\a')
+# functions end
+
+
+
+if(config['current_state'] == 'start_of_program'):
+  
+    config['entrytime']=950
+    # config['entrytime']=2000
+    config['distance_strike_ce']=0
+    config['distance_strike_pe']=0
+    config['current_expiry_prefix']='BANKNIFTY22922'
+    config['next_expiry_prefix']='BANKNIFTY22922'
+    
+    config['num_of_lots'] = 1
+    config['lot_size'] = 25
+    config['sell'] = 0
+    config['mis'] = 1
+    config['sl_moved'] = 0
+
+    num_of_lots = config['num_of_lots']
+    lot_size = config['lot_size']
+    target_points = config['target_points']
+    loss_points = config['loss_points']
+    trail_SL_points = config['trail_SL_points']
+    sell = config['sell']
+    mis = config['mis']
+    sl_moved = config['sl_moved']
+
+    config['stop_trading'] = 0
+    config['max_pnl'] = -66666
+    config['min_pnl'] = 66666
+    config['target'] = config['num_of_lots'] * \
+        config['lot_size']*config['target_points']
+    config['max_loss'] = -config['num_of_lots'] * \
+        config['lot_size']*config['loss_points']
+    config['trail_SL'] = -config['trail_SL_points'] * \
+        config['num_of_lots']*config['lot_size']
+
+    #print('target and SL ',target, max_loss)
+    
+    
+    stop_trading=config['stop_trading']
+    max_pnl=config['max_pnl']
+    min_pnl=config['min_pnl']
+    target=config['target']
+    max_loss=config['max_loss']
+    trail_SL=config['trail_SL']
+    
+    config['max_ce']=-66666
+    config['max_pe']=-66666
+    config['min_ce']=66666
+    config['min_pe']=66666
+    
+    max_ce=config['max_ce']
+    max_pe=config['max_pe']
+    min_ce=config['min_ce']
+    min_pe=config['min_pe']
+     
+    config['pnl_booked']=0
+    config['run_time_till']=120005
+    #square_off_cutoff_time=152930
+    config['square_off_cutoff_time']=115400
+    # config['square_off_cutoff_time']=222300
+    # config['run_time_till']=222300
+    
+    
+    pnl_booked=config['pnl_booked']
+    run_time_till=config['run_time_till']
+    #square_off_cutoff_time=152930
+    square_off_cutoff_time=config['square_off_cutoff_time']
+    
+    config['loop_delay_time']=0.5
+    config['trail_SL_points']=14
+    config['collect_brokerage_point']=12.5
+    config['absolute_profit_take_and_leave']=7.5
+    #config['absolute_profit_take_and_leave']=2900
+    
+
+if(config['current_state'] == 'defined_all_functions_waiting_for_entry'):
+    time_hour_min = 0
+    counter = 0
+    while(time_hour_min < config['entrytime']):
+        print("\n\ninside while loop.. waiting for entry time")
+        now = datetime.datetime.now()
+        #now = datetime.now()
+        hour1 = int(now.strftime("%H"))
+        min1 = int(now.strftime("%M"))
+        time_hour_min = hour1*100+min1
+        print(now, time_hour_min)
+        time.sleep(1)
+        counter += 1
+        if(counter % 10 == 0):
+            ## winsound.Beep(250, 250)
+            # every minute
+
+
+# %%
+
+if(config['current_state'] == 'entry_time_reached_execute_code'):
+
+    spot = kite.ltp("NSE:NIFTY BANK")["NSE:NIFTY BANK"]["last_price"]
+
+    # spot=35987
+    print(spot)
+
+    spot_near = round(spot/100)*100
+    print(spot_near)
+
+    config['entry_spot'] = spot
+    config['entry_spot_near'] = spot_near
+
+    config['ce_strike'] = spot_near+config['distance_strike_ce']
+    config['pe_strike'] = spot_near-config['distance_strike_pe']
+
+
+    config['ce_txt'] = 'NFO:'+config['current_expiry_prefix'] + \
+        str(config['ce_strike'])+'CE'
+    config['ce_txt_noexchange'] = config['current_expiry_prefix'] + \
+        str(config['ce_strike'])+'CE'
+
+    config['pe_txt'] = 'NFO:'+config['current_expiry_prefix'] + \
+        str(config['pe_strike'])+'PE'
+    config['pe_txt_noexchange'] = config['current_expiry_prefix'] + \
+        str(config['pe_strike'])+'PE'
+
+    config['pe_ltp'] = kite.ltp(config['pe_txt'])[
+        config['pe_txt']]["last_price"]
+    config['ce_ltp'] = kite.ltp(config['ce_txt'])[
+        config['ce_txt']]["last_price"]
+
+    ce_txt = config['ce_txt']
+    ce_txt_noexchange = config['ce_txt_noexchange']
+
+    pe_txt = config['pe_txt']
+    pe_txt_noexchange = config['pe_txt_noexchange']
+
+#if(config['current_state']=='entry_time_reached_execute_code'):
+    if(config['sell']==1 and config['mis']==1 and testing_config_py_file==0):
+        placeOrder_MARKET_MIS(config['ce_txt_noexchange'],"sell",config['num_of_lots']*config['lot_size'])
+        placeOrder_MARKET_MIS(config['pe_txt_noexchange'],"sell",config['num_of_lots']*config['lot_size'])
+        config['entered_position']='entered sell mis '
+       
+    if(config['sell']==0 and config['mis']==1 and testing_config_py_file==0):
+        placeOrder_MARKET_MIS(config['ce_txt_noexchange'],"buy",config['num_of_lots']*config['lot_size'])
+        placeOrder_MARKET_MIS(config['pe_txt_noexchange'],"buy",config['num_of_lots']*config['lot_size'])
+        config['entered_position']='entered buy mis '
+       
+    if(config['sell']==1 and config['mis']==0 and testing_config_py_file==0):
+        placeOrder_MARKET_NRML(config['ce_txt_noexchange'],"sell",config['num_of_lots']*config['lot_size'])
+        placeOrder_MARKET_NRML(config['pe_txt_noexchange'],"sell",config['num_of_lots']*config['lot_size'])
+        config['entered_position']='entered sell nrml '
+       
+    if(config['sell']==0 and config['mis']==0 and testing_config_py_file==0):
+        placeOrder_MARKET_NRML(config['ce_txt_noexchange'],"buy",config['num_of_lots']*config['lot_size'])
+        placeOrder_MARKET_NRML(config['pe_txt_noexchange'],"buy",config['num_of_lots']*config['lot_size'])
+        config['entered_position']='entered buy nrml '
+   
+    if(testing_config_py_file==1):
+        config['entered_position']='backtesting ---- entered buy nrml/mis '
+   # %%
+
+if(config['current_state']=='placed_order_entered_positions'):
+
+   
+    pe_avg=config['pe_avg']
+    ce_avg=config['ce_avg']
+    #config['pe_avg']=63
+    #config['ce_avg']=64
+    #text=str(spot)+" "+ce_txt_noexchange+ " "+str((ce_avg))+" " +pe_txt_noexchange+" "+str((pe_avg))
+    # print(text)
+    #print(config['pe_avg'], config['ce_avg'])
+    print(pe_avg, ce_avg)
+
+    text = "entered status\nSPOT "+str(spot)+"\n"+pe_txt_noexchange + "\t"+str((pe_avg))+"\n" + ce_txt_noexchange+"\t"+str((ce_avg))+"\nLots "+str(num_of_lots)+"\nTarget "+str(target)+"\nSL "+str(max_loss)+"\nTrailSL "+str(trail_SL)
+
+    print(text)
+
+   # telegram_message(chatId, text)
+
+   # telegram_message(chatId, 'all done before infinite loop')
+    print("all done before infinite loop")
+    config['current_state'] = 'all_good_and_entering_infinite_loop'
+    print(config)
+
+
+
+if(config['current_state'] == 'all_good_and_entering_infinite_loop'):
+
+    # 15:30 10 seconds extra.
+    while(config['time_hour_min'] < config['run_time_till'] and config['stop_trading'] == 0 and config['current_state'] == 'all_good_and_entering_infinite_loop'):
+        time.sleep(loop_delay_time)
+        print("before try")
+        #try:
+        now = datetime.datetime.now()
+        now = datetime.datetime.now()
+        #now = datetime.now()
+        hour1 = int(now.strftime("%H"))
+        min1 = int(now.strftime("%M"))
+        second1 = int(now.strftime("%S"))
+        time_hour_min = hour1*10000+min1*100+second1
+        config['time_hour_min'] = time_hour_min
+        #print(now, time_hour_min)
+        ce = kite.ltp(ce_txt)[ce_txt]["last_price"]
+        # ce=20
+        pe = kite.ltp(pe_txt)[pe_txt]["last_price"]
+        total_pnl = (ce_avg+pe_avg-ce-pe)*lot_size*num_of_lots+pnl_booked
+        total_pnl =total_pnl
+        print(total_pnl)
+        print(pe)
+        print(ce)
+        config['last_known_pnl'] = total_pnl
+        config['last_known_pe_value'] = pe
+        config['last_known_ce_value'] = ce
+        config['time_hour_min'] = time_hour_min
+            
+        
+        # if(total_pnl>=target):
+        # target+=50
+        if(total_pnl <= max_loss):
+            stop_trading = 1
+            config['stop_trading'] = 1
+            #square_off_all_positions()
+            print("SL hit.. square off.. done for the day")
+            config['current_state'] = 'SL_hit_Square_off_done_for_the_day'
+            # winsound.Beep(4000, 1000)
+        if(pe < min_pe):
+            config['min_pe'] = pe
+            min_pe = config['min_pe']
+        if(pe > max_pe):
+            config['max_pe'] = pe
+            max_pe = config['max_pe']
+        if(ce < min_ce):
+            config['min_ce'] = ce
+            min_ce = config['min_ce']
+        if(ce > max_ce):
+            config['max_ce'] = ce
+            max_ce = config['max_ce']
+        # print(min_pe, max_pe, min_ce, max_ce)
+        # print(min_pe, max_pe, min_ce, max_ce)
+
+        status = "\ntime "+str(time_hour_min)+"\t\tpe "+str(round(pe_avg-min_pe))+" "+str(round(pe_avg-pe))+" "+str(round(pe_avg-max_pe))+"\t\tce "+str(round(ce_avg-min_ce))+" "+str(round(ce_avg-ce))+" "+str(round(ce_avg-max_ce))+"\t\tmin "+str(round(min_pnl))+" now "+str(round(total_pnl))+" max "+str(round(max_pnl))+" tgt "+str(target)+" SL "+str(max_loss)+" TH "+str(absolute_profit_take_and_leave)+" cb "+str(collect_brokerage_point)
+        print(status)
+        counter += 1
+        if(total_pnl <= -(loss_points)*lot_size*num_of_lots):
+            # winsound.Beep(1000, 1000)
+            total_pnl = total_pnl
+
+        if(total_pnl >= target):
+            # winsound.Beep(4000, 250)
+            target += 100
+        if(time_hour_min >= square_off_cutoff_time): # and sl_moved == 0):
+            print("squaring off positions since we reached cutoff time")
+            stop_trading = 1
+            config['stop_trading'] = 1
+            # square_off_all_positions()
+            config['current_state'] = 'square_off_time_reached_done_for_the_day'               
+            #max_loss = round(total_pnl-lot_size*num_of_lots*.1)
+            config['sl_moved'] = 1
+            sl_moved = 1
+        if(counter % 150 == 0):
+            ## winsound.Beep(250, 250)
+            print('\a')  # things are working :D
+
+#telegram_message(chatId, config)
+
+time.sleep(2)
+
+#telegram_message(chatId, "Done for the day... today's PnL is "+str(round(total_pnl)))
+
+
+print("End of code")
